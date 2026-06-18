@@ -40,6 +40,7 @@ async function insertListing(listing) {
     category: listing.category,
     description: listing.desc,
     img: listing.img,
+    venmo: listing.venmo,
     boosted: false,
   };
   console.log("Inserting listing:", body);
@@ -155,68 +156,97 @@ function ListingCard({ listing, onClick }) {
 
 function BuyModal({ listing, onClose }) {
   const fee = Math.ceil(listing.price * PLATFORM_FEE_PCT * 100) / 100;
-  const total = (listing.price + fee).toFixed(2);
-  const [paid, setPaid] = useState(false);
+  const sellerVenmo = listing.venmo || "the seller";
+  const [step, setStep] = useState("confirm"); // confirm → pay_seller → pay_fee → done
+
+  const paySteps = [
+    {
+      key: "pay_seller",
+      label: `Step 1 of 2 — Pay seller`,
+      amount: listing.price,
+      to: sellerVenmo,
+      note: `flip. purchase: ${listing.title}`,
+      btnText: `Ⓥ Pay $${listing.price} to @${sellerVenmo}`,
+      next: "pay_fee",
+    },
+    {
+      key: "pay_fee",
+      label: `Step 2 of 2 — Pay platform fee`,
+      amount: fee.toFixed(2),
+      to: VENMO,
+      note: `flip. platform fee: ${listing.title}`,
+      btnText: `Ⓥ Pay $${fee.toFixed(2)} to flip.`,
+      next: "done",
+    },
+  ];
+
+  const current = paySteps.find(s => s.key === step);
 
   const handlePay = () => {
-    payVenmo({
-      amount: total,
-      note: `flip. purchase: ${listing.title} ($${listing.price} + $${fee.toFixed(2)} platform fee)`
-    });
-    setPaid(true);
+    const url = `https://venmo.com/${current.to}?txn=pay&amount=${current.amount}&note=${encodeURIComponent(current.note)}`;
+    window.open(url, "_blank");
+    setStep(current.next);
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200,
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 16
-    }} onClick={onClose}>
-      <div style={{
-        background: "#fff", borderRadius: 10, padding: 28, maxWidth: 380, width: "100%",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
-      }} onClick={e => e.stopPropagation()}>
-        {!paid ? (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div style={{ background: "#fff", borderRadius: 10, padding: 28, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
+
+        {step === "confirm" && (
           <>
             <h2 style={{ margin: "0 0 4px", fontSize: 18, color: "#1A1A18" }}>Confirm purchase</h2>
-            <p style={{ margin: "0 0 20px", fontSize: 13, color: "#888" }}>Payment goes directly to the seller via Venmo.</p>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: "#888" }}>You'll make 2 quick Venmo payments — one to the seller, one to flip.</p>
             <div style={{ background: "#F5F4F1", borderRadius: 8, padding: 16, marginBottom: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 8, color: "#444" }}>
-                <span>{listing.title}</span>
-                <span>${listing.price}</span>
+                <span>{listing.title}</span><span>${listing.price}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 12, color: "#888" }}>
-                <span>Platform fee (8%)</span>
-                <span>${fee.toFixed(2)}</span>
+                <span>Platform fee (8%)</span><span>${fee.toFixed(2)}</span>
               </div>
               <div style={{ borderTop: "1px solid #DDD9D3", paddingTop: 12, display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 16, color: "#1A1A18" }}>
-                <span>Total</span>
-                <span style={{ color: "#C9973A" }}>${total}</span>
+                <span>Total</span><span style={{ color: "#C9973A" }}>${(listing.price + fee).toFixed(2)}</span>
+              </div>
+            </div>
+            <button onClick={() => setStep("pay_seller")} style={{ width: "100%", background: "#C9973A", color: "#fff", border: "none", padding: "13px 0", borderRadius: 6, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+              Let's go →
+            </button>
+            <button onClick={onClose} style={{ marginTop: 10, width: "100%", background: "none", border: "1px solid #DDD9D3", padding: "10px 0", borderRadius: 6, color: "#888", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+          </>
+        )}
+
+        {(step === "pay_seller" || step === "pay_fee") && current && (
+          <>
+            <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+              {paySteps.map((s, i) => (
+                <div key={s.key} style={{ flex: 1, height: 4, borderRadius: 2, background: step === s.key || paySteps.indexOf(paySteps.find(x => x.key === step)) > i ? "#C9973A" : "#DDD9D3" }} />
+              ))}
+            </div>
+            <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 700, color: "#C9973A", textTransform: "uppercase", letterSpacing: "0.05em" }}>{current.label}</p>
+            <h2 style={{ margin: "0 0 20px", fontSize: 18, color: "#1A1A18" }}>
+              {step === "pay_seller" ? `Pay @${sellerVenmo}` : "Pay flip. fee"}
+            </h2>
+            <div style={{ background: "#F5F4F1", borderRadius: 8, padding: 16, marginBottom: 20, textAlign: "center" }}>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#C9973A" }}>${current.amount}</div>
+              <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+                {step === "pay_seller" ? `goes to @${sellerVenmo}` : "goes to flip. platform"}
               </div>
             </div>
             <p style={{ fontSize: 12, color: "#aaa", margin: "0 0 16px", lineHeight: 1.5 }}>
-              You'll be redirected to Venmo. Once payment is sent, message the seller to arrange pickup.
+              Tap below to open Venmo. Once sent, come back here to complete the next step.
             </p>
-            <button onClick={handlePay} style={{
-              width: "100%", background: "#008CFF", color: "#fff", border: "none",
-              padding: "13px 0", borderRadius: 6, fontWeight: 800, fontSize: 15,
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-            }}>
-              <span style={{ fontSize: 18 }}>Ⓥ</span> Pay ${total} on Venmo
+            <button onClick={handlePay} style={{ width: "100%", background: "#008CFF", color: "#fff", border: "none", padding: "13px 0", borderRadius: 6, fontWeight: 800, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>Ⓥ</span> {current.btnText}
             </button>
-            <button onClick={onClose} style={{
-              marginTop: 10, width: "100%", background: "none", border: "1px solid #DDD9D3",
-              padding: "10px 0", borderRadius: 6, color: "#888", cursor: "pointer", fontSize: 13
-            }}>Cancel</button>
+            <button onClick={onClose} style={{ marginTop: 10, width: "100%", background: "none", border: "1px solid #DDD9D3", padding: "10px 0", borderRadius: 6, color: "#888", cursor: "pointer", fontSize: 13 }}>Cancel</button>
           </>
-        ) : (
+        )}
+
+        {step === "done" && (
           <div style={{ textAlign: "center", padding: "12px 0" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-            <h3 style={{ margin: "0 0 8px", color: "#1A1A18" }}>Payment sent!</h3>
-            <p style={{ fontSize: 14, color: "#666", margin: "0 0 20px" }}>Now message the seller to arrange pickup or shipping.</p>
-            <button onClick={onClose} style={{
-              width: "100%", background: "#1A1A18", color: "#fff", border: "none",
-              padding: "12px 0", borderRadius: 6, fontWeight: 700, fontSize: 14, cursor: "pointer"
-            }}>Done</button>
+            <h3 style={{ margin: "0 0 8px", color: "#1A1A18" }}>You're all set!</h3>
+            <p style={{ fontSize: 14, color: "#666", margin: "0 0 20px" }}>Both payments sent. Message the seller to arrange pickup or shipping.</p>
+            <button onClick={onClose} style={{ width: "100%", background: "#1A1A18", color: "#fff", border: "none", padding: "12px 0", borderRadius: 6, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
           </div>
         )}
       </div>
@@ -314,7 +344,7 @@ function SellModal({ onClose, onPublish }) {
   const [rough, setRough] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ title:"", price:"", condition:"Good", category:"Electronics", desc:"" });
+  const [form, setForm] = useState({ title:"", price:"", condition:"Good", category:"Electronics", desc:"", venmo:"" });
   const [agreed, setAgreed] = useState(false);
 
   const handleAI = async () => {
@@ -331,10 +361,10 @@ function SellModal({ onClose, onPublish }) {
   };
 
   const handlePublish = async () => {
-    if (!form.title || !form.price || !agreed) return;
+    if (!form.title || !form.price || !form.venmo || !agreed) return;
     setLoading(true);
     try {
-      await onPublish({ id: Date.now(), title: form.title, price: parseInt(form.price), condition: form.condition, category: form.category, desc: form.desc, img: "📦", views: 0, boosted: false });
+      await onPublish({ id: Date.now(), title: form.title, price: parseInt(form.price), condition: form.condition, category: form.category, desc: form.desc, venmo: form.venmo, img: "📦", views: 0, boosted: false });
       onClose();
     } catch(e) {
       setError("Failed to publish. Please try again.");
@@ -387,6 +417,15 @@ function SellModal({ onClose, onPublish }) {
               <textarea value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} rows={3} placeholder="A bit more about the item…"
                 style={{ width: "100%", boxSizing: "border-box", border: "1.5px solid #DDD9D3", borderRadius: 6, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.5 }} />
             </div>
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>Your Venmo username</label>
+              <div style={{ display: "flex", alignItems: "center", border: "1.5px solid #DDD9D3", borderRadius: 6, overflow: "hidden" }}>
+                <span style={{ background: "#F5F4F1", padding: "9px 10px", fontSize: 14, color: "#888", borderRight: "1px solid #DDD9D3" }}>@</span>
+                <input value={form.venmo} onChange={e => setForm(p => ({ ...p, venmo: e.target.value.replace("@","") }))} placeholder="yourvenmo"
+                  style={{ flex: 1, border: "none", padding: "9px 12px", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+              </div>
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "#aaa" }}>Buyers will pay you directly at this handle.</p>
+            </div>
             <div onClick={() => setAgreed(a => !a)} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 16, cursor: "pointer", background: agreed ? "#F0FAF4" : "#FFF8EC", border: `1.5px solid ${agreed ? "#2A7A4B" : "#C9973A"}`, borderRadius: 6, padding: "10px 12px" }}>
               <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${agreed ? "#2A7A4B" : "#C9973A"}`, background: agreed ? "#2A7A4B" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
                 {agreed && <span style={{ color: "#fff", fontSize: 12, fontWeight: 900 }}>✓</span>}
@@ -396,8 +435,8 @@ function SellModal({ onClose, onPublish }) {
               </span>
             </div>
 
-            <button onClick={handlePublish} disabled={!form.title || !form.price || !agreed || loading}
-              style={{ width: "100%", background: (!form.title || !form.price || !agreed || loading) ? "#ccc" : "#1A1A18", color: "#fff", border: "none", padding: "12px 0", borderRadius: 6, fontWeight: 700, fontSize: 15, cursor: (!form.title || !form.price || !agreed || loading) ? "not-allowed" : "pointer" }}>
+            <button onClick={handlePublish} disabled={!form.title || !form.price || !form.venmo || !agreed || loading}
+              style={{ width: "100%", background: (!form.title || !form.price || !form.venmo || !agreed || loading) ? "#ccc" : "#1A1A18", color: "#fff", border: "none", padding: "12px 0", borderRadius: 6, fontWeight: 700, fontSize: 15, cursor: (!form.title || !form.price || !form.venmo || !agreed || loading) ? "not-allowed" : "pointer" }}>
               {loading ? "Publishing…" : "Publish listing"}
             </button>
             <button onClick={() => setStep("quick")} style={{ marginTop: 8, width: "100%", background: "none", border: "none", padding: "8px 0", color: "#C9973A", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>← Try AI again</button>
