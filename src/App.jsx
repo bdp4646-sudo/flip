@@ -32,6 +32,22 @@ async function fetchListings() {
   return sbFetch("/listings?select=*&order=boosted.desc,created_at.desc");
 }
 
+async function uploadImage(file) {
+  const ext = file.name.split(".").pop();
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/listing-images/${fileName}`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+      "Content-Type": file.type,
+    },
+    body: file,
+  });
+  if (!res.ok) throw new Error("Image upload failed");
+  return `${SUPABASE_URL}/storage/v1/object/public/listing-images/${fileName}`;
+}
+
 async function insertListing(listing) {
   const body = {
     title: listing.title,
@@ -40,6 +56,7 @@ async function insertListing(listing) {
     category: listing.category,
     description: listing.desc,
     img: listing.img,
+    image_url: listing.image_url || null,
     venmo: listing.venmo,
     boosted: false,
   };
@@ -144,8 +161,11 @@ function ListingCard({ listing, onClick }) {
           letterSpacing: "0.06em", textTransform: "uppercase"
         }}>⚡ Boosted</div>
       )}
-      <div style={{ fontSize: 36, textAlign: "center", background: "#F5F4F1", borderRadius: 4, padding: "12px 0" }}>
-        {listing.img}
+      <div style={{ fontSize: 36, textAlign: "center", background: "#F5F4F1", borderRadius: 4, overflow: "hidden" }}>
+        {listing.image_url
+          ? <img src={listing.image_url} alt={listing.title} style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
+          : <div style={{ padding: "12px 0" }}>{listing.img}</div>
+        }
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3, color: "#1A1A18", flex: 1 }}>{listing.title}</span>
@@ -285,7 +305,12 @@ function ListingModal({ listing, onClose, onBoost, onSold }) {
           background: "#fff", borderRadius: 10, padding: 28, maxWidth: 420, width: "100%",
           boxShadow: "0 20px 60px rgba(0,0,0,0.25)"
         }} onClick={e => e.stopPropagation()}>
-          <div style={{ fontSize: 56, textAlign: "center", marginBottom: 16 }}>{listing.img}</div>
+          <div style={{ textAlign: "center", marginBottom: 16, borderRadius: 8, overflow: "hidden", background: "#F5F4F1" }}>
+            {listing.image_url
+              ? <img src={listing.image_url} alt={listing.title} style={{ width: "100%", maxHeight: 240, objectFit: "cover", display: "block" }} />
+              : <div style={{ fontSize: 56, padding: "20px 0" }}>{listing.img}</div>
+            }
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <h2 style={{ margin: 0, fontSize: 18, color: "#1A1A18" }}>{listing.title}</h2>
             <span style={{ fontSize: 24, fontWeight: 800, color: "#C9973A" }}>${listing.price}</span>
@@ -411,6 +436,15 @@ function SellModal({ onClose, onPublish }) {
   const [error, setError] = useState("");
   const [form, setForm] = useState({ title:"", price:"", condition:"Good", category:"Electronics", desc:"", venmo:"" });
   const [agreed, setAgreed] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
 
   const handleAI = async () => {
     if (!rough.trim()) return;
@@ -429,7 +463,11 @@ function SellModal({ onClose, onPublish }) {
     if (!form.title || !form.price || !form.venmo || !agreed) return;
     setLoading(true);
     try {
-      await onPublish({ id: Date.now(), title: form.title, price: parseInt(form.price), condition: form.condition, category: form.category, desc: form.desc, venmo: form.venmo, img: "📦", views: 0, boosted: false });
+      let image_url = null;
+      if (imageFile) {
+        image_url = await uploadImage(imageFile);
+      }
+      await onPublish({ id: Date.now(), title: form.title, price: parseInt(form.price), condition: form.condition, category: form.category, desc: form.desc, venmo: form.venmo, img: "📦", image_url, views: 0, boosted: false });
       onClose();
     } catch(e) {
       setError("Failed to publish. Please try again.");
@@ -478,7 +516,18 @@ function SellModal({ onClose, onPublish }) {
               ))}
             </div>
             <div style={{ marginBottom: 18 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>Description</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>Photo</label>
+              <label style={{ display: "block", cursor: "pointer" }}>
+                {imagePreview
+                  ? <img src={imagePreview} alt="preview" style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 6, display: "block" }} />
+                  : <div style={{ width: "100%", height: 120, border: "2px dashed #DDD9D3", borderRadius: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "#aaa" }}>
+                      <span style={{ fontSize: 28 }}>📷</span>
+                      <span style={{ fontSize: 13 }}>Tap to add a photo</span>
+                    </div>
+                }
+                <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: "none" }} />
+              </label>
+            </div>
               <textarea value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} rows={3} placeholder="A bit more about the item…"
                 style={{ width: "100%", boxSizing: "border-box", border: "1.5px solid #DDD9D3", borderRadius: 6, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.5 }} />
             </div>
