@@ -68,6 +68,12 @@ async function boostListing(id) {
   });
 }
 
+async function deleteListing(id) {
+  return sbFetch(`/listings?id=eq.${id}`, {
+    method: "DELETE",
+  });
+}
+
 // Fallback demo data shown while Supabase isn't configured yet
 const DEMO_LISTINGS = [
   { id:1, title:"Sony WH-1000XM4 Headphones", price:180, condition:"Good", category:"Electronics", desc:"Barely used, original box included. Minor scuff on left cup.", img:"🎧", views:34, created_at: new Date(Date.now()-7200000).toISOString(), boosted:true },
@@ -254,8 +260,9 @@ function BuyModal({ listing, onClose }) {
   );
 }
 
-function ListingModal({ listing, onClose, onBoost }) {
+function ListingModal({ listing, onClose, onBoost, onSold }) {
   const [buying, setBuying] = useState(false);
+  const [confirmSold, setConfirmSold] = useState(false);
   if (!listing) return null;
   return (
     <>
@@ -288,6 +295,21 @@ function ListingModal({ listing, onClose, onBoost }) {
               padding: "9px 0", borderRadius: 5, color: "#C9973A", cursor: "pointer",
               fontSize: 13, fontWeight: 700, marginBottom: 8
             }}>⚡ Boost this listing — $3</button>
+          )}
+          {!confirmSold ? (
+            <button onClick={() => setConfirmSold(true)} style={{
+              width: "100%", background: "none", border: "1px solid #2A7A4B",
+              padding: "9px 0", borderRadius: 5, color: "#2A7A4B", cursor: "pointer",
+              fontSize: 13, fontWeight: 700, marginBottom: 8
+            }}>✓ Mark as sold</button>
+          ) : (
+            <div style={{ background: "#F0FAF4", border: "1.5px solid #2A7A4B", borderRadius: 6, padding: "12px", marginBottom: 8, textAlign: "center" }}>
+              <p style={{ margin: "0 0 10px", fontSize: 13, color: "#2A7A4B", fontWeight: 600 }}>Remove this listing?</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setConfirmSold(false)} style={{ flex: 1, background: "none", border: "1px solid #DDD9D3", padding: "8px 0", borderRadius: 5, color: "#888", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+                <button onClick={() => { onSold(listing.id); onClose(); }} style={{ flex: 1, background: "#2A7A4B", border: "none", padding: "8px 0", borderRadius: 5, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Yes, remove it</button>
+              </div>
+            </div>
           )}
           <button onClick={onClose} style={{ width: "100%", background: "none", border: "1px solid #DDD9D3", padding: "9px 0", borderRadius: 5, color: "#888", cursor: "pointer", fontSize: 13 }}>Close</button>
         </div>
@@ -652,7 +674,14 @@ export default function App() {
     }
   };
 
-  const filtered = listings.filter(l => {
+  const handleSold = async (id) => {
+    try {
+      await deleteListing(id);
+      setListings(prev => prev.filter(l => l.id !== id));
+    } catch (err) {
+      console.error("Failed to delete listing:", err);
+    }
+  };
     const matchSearch = l.title.toLowerCase().includes(search.toLowerCase()) || l.desc.toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCat === "All" || l.category === filterCat;
     return matchSearch && matchCat;
@@ -724,7 +753,7 @@ export default function App() {
 
       <button onClick={() => setSelling(true)} style={{ position: "fixed", bottom: 24, right: 24, background: "#C9973A", color: "#fff", border: "none", width: 56, height: 56, borderRadius: "50%", fontSize: 24, cursor: "pointer", boxShadow: "0 4px 20px rgba(201,151,58,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>+</button>
 
-      {selected && <ListingModal listing={selected} onClose={() => setSelected(null)} onBoost={(l) => { setSelected(null); setBoostTarget(l); }} />}
+      {selected && <ListingModal listing={selected} onClose={() => setSelected(null)} onBoost={(l) => { setSelected(null); setBoostTarget(l); }} onSold={handleSold} />}
       {boostTarget && <BoostModal listing={boostTarget} onClose={() => setBoostTarget(null)} onConfirm={handleBoostConfirm} />}
       {selling && <SellModal onClose={() => setSelling(false)} onPublish={handlePublish} />}
       <ChatBot listings={listings} />
