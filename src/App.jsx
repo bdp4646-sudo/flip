@@ -799,6 +799,12 @@ export default function App() {
         </div>
       </div>
 
+      <div style={{ background: "#C9973A", padding: "10px 20px", textAlign: "center" }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fff", letterSpacing: "0.02em" }}>
+          👋 Welcome YouTube fam! List something, find a deal, and tell a friend — let's build this together.
+        </p>
+      </div>
+
       <div style={{ background: "#232320", padding: "28px 20px" }}>
         <div style={{ maxWidth: 900, margin: "0 auto" }}>
           <p style={{ margin: "0 0 4px", color: "#C9973A", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Local resale, simplified</p>
