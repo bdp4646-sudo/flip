@@ -528,6 +528,8 @@ function SellModal({ onClose, onPublish }) {
                 <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: "none" }} />
               </label>
             </div>
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>Description</label>
               <textarea value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} rows={3} placeholder="A bit more about the item…"
                 style={{ width: "100%", boxSizing: "border-box", border: "1.5px solid #DDD9D3", borderRadius: 6, padding: "9px 12px", fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none", lineHeight: 1.5 }} />
             </div>
