@@ -263,7 +263,18 @@ function BuyModal({ listing, onClose }) {
 function ListingModal({ listing, onClose, onBoost, onSold }) {
   const [buying, setBuying] = useState(false);
   const [confirmSold, setConfirmSold] = useState(false);
+  const [soldVenmo, setSoldVenmo] = useState("");
+  const [soldError, setSoldError] = useState("");
   if (!listing) return null;
+
+  const handleSoldVerify = () => {
+    if (soldVenmo.replace("@","").toLowerCase() === (listing.venmo || "").toLowerCase()) {
+      onSold(listing.id);
+      onClose();
+    } else {
+      setSoldError("That Venmo handle doesn't match. Only the seller can remove this listing.");
+    }
+  };
   return (
     <>
       <div style={{
@@ -303,11 +314,17 @@ function ListingModal({ listing, onClose, onBoost, onSold }) {
               fontSize: 13, fontWeight: 700, marginBottom: 8
             }}>✓ Mark as sold</button>
           ) : (
-            <div style={{ background: "#F0FAF4", border: "1.5px solid #2A7A4B", borderRadius: 6, padding: "12px", marginBottom: 8, textAlign: "center" }}>
-              <p style={{ margin: "0 0 10px", fontSize: 13, color: "#2A7A4B", fontWeight: 600 }}>Remove this listing?</p>
+            <div style={{ background: "#F0FAF4", border: "1.5px solid #2A7A4B", borderRadius: 6, padding: "12px", marginBottom: 8 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 13, color: "#2A7A4B", fontWeight: 600 }}>Enter your Venmo to confirm:</p>
+              <div style={{ display: "flex", alignItems: "center", border: "1.5px solid #DDD9D3", borderRadius: 6, overflow: "hidden", marginBottom: 8, background: "#fff" }}>
+                <span style={{ background: "#F5F4F1", padding: "8px 10px", fontSize: 14, color: "#888", borderRight: "1px solid #DDD9D3" }}>@</span>
+                <input value={soldVenmo} onChange={e => setSoldVenmo(e.target.value.replace("@",""))} placeholder="yourvenmo"
+                  style={{ flex: 1, border: "none", padding: "8px 12px", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+              </div>
+              {soldError && <p style={{ color: "#8A4A2A", fontSize: 12, margin: "0 0 8px" }}>{soldError}</p>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setConfirmSold(false)} style={{ flex: 1, background: "none", border: "1px solid #DDD9D3", padding: "8px 0", borderRadius: 5, color: "#888", cursor: "pointer", fontSize: 13 }}>Cancel</button>
-                <button onClick={() => { onSold(listing.id); onClose(); }} style={{ flex: 1, background: "#2A7A4B", border: "none", padding: "8px 0", borderRadius: 5, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Yes, remove it</button>
+                <button onClick={() => { setConfirmSold(false); setSoldError(""); }} style={{ flex: 1, background: "none", border: "1px solid #DDD9D3", padding: "8px 0", borderRadius: 5, color: "#888", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+                <button onClick={handleSoldVerify} style={{ flex: 1, background: "#2A7A4B", border: "none", padding: "8px 0", borderRadius: 5, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Remove listing</button>
               </div>
             </div>
           )}
@@ -321,6 +338,18 @@ function ListingModal({ listing, onClose, onBoost, onSold }) {
 
 function BoostModal({ listing, onClose, onConfirm }) {
   const [paid, setPaid] = useState(false);
+  const [venmoInput, setVenmoInput] = useState("");
+  const [verified, setVerified] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleVerify = () => {
+    if (venmoInput.replace("@","").toLowerCase() === (listing.venmo || "").toLowerCase()) {
+      setVerified(true);
+      setError("");
+    } else {
+      setError("That Venmo handle doesn't match this listing. Only the seller can boost.");
+    }
+  };
 
   const handlePay = () => {
     payVenmo({ amount: BOOST_FEE, note: `flip. listing boost: "${listing.title}"` });
@@ -332,7 +361,21 @@ function BoostModal({ listing, onClose, onConfirm }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
       <div style={{ background: "#fff", borderRadius: 10, padding: 28, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={e => e.stopPropagation()}>
-        {!paid ? (
+        {!verified ? (
+          <>
+            <div style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}>🔒</div>
+            <h2 style={{ margin: "0 0 6px", fontSize: 18, color: "#1A1A18", textAlign: "center" }}>Seller verification</h2>
+            <p style={{ margin: "0 0 20px", fontSize: 13, color: "#888", textAlign: "center", lineHeight: 1.5 }}>Enter the Venmo handle you listed with to boost this listing.</p>
+            <div style={{ display: "flex", alignItems: "center", border: "1.5px solid #DDD9D3", borderRadius: 6, overflow: "hidden", marginBottom: 8 }}>
+              <span style={{ background: "#F5F4F1", padding: "9px 10px", fontSize: 14, color: "#888", borderRight: "1px solid #DDD9D3" }}>@</span>
+              <input value={venmoInput} onChange={e => setVenmoInput(e.target.value.replace("@",""))} placeholder="yourvenmo"
+                style={{ flex: 1, border: "none", padding: "9px 12px", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+            </div>
+            {error && <p style={{ color: "#8A4A2A", fontSize: 12, margin: "0 0 12px" }}>{error}</p>}
+            <button onClick={handleVerify} style={{ width: "100%", background: "#C9973A", color: "#fff", border: "none", padding: "12px 0", borderRadius: 6, fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 8 }}>Verify</button>
+            <button onClick={onClose} style={{ width: "100%", background: "none", border: "1px solid #DDD9D3", padding: "10px 0", borderRadius: 6, color: "#888", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+          </>
+        ) : !paid ? (
           <>
             <div style={{ fontSize: 36, textAlign: "center", marginBottom: 12 }}>⚡</div>
             <h2 style={{ margin: "0 0 6px", fontSize: 18, color: "#1A1A18", textAlign: "center" }}>Boost your listing</h2>
@@ -682,7 +725,9 @@ export default function App() {
       console.error("Failed to delete listing:", err);
     }
   };
-    const matchSearch = l.title.toLowerCase().includes(search.toLowerCase()) || l.desc.toLowerCase().includes(search.toLowerCase());
+
+  const filtered = listings.filter(l => {
+    const matchSearch = l.title.toLowerCase().includes(search.toLowerCase()) || (l.description || l.desc || "").toLowerCase().includes(search.toLowerCase());
     const matchCat = filterCat === "All" || l.category === filterCat;
     return matchSearch && matchCat;
   });
