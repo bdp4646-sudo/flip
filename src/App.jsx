@@ -322,7 +322,7 @@ function ListingModal({ listing, onClose, onBoost, onSold }) {
           </div>
           <p style={{ fontSize: 14, color: "#444", lineHeight: 1.6, marginBottom: 20 }}>{listing.description || listing.desc}</p>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <button style={{ flex: 1, background: "#1A1A18", color: "#fff", border: "none", padding: "11px 0", borderRadius: 5, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Message Seller</button>
+            <a href={`https://venmo.com/${listing.venmo}`} target="_blank" rel="noreferrer" style={{ flex: 1, background: "#1A1A18", color: "#fff", border: "none", padding: "11px 0", borderRadius: 5, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "center", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>Message Seller</a>
             <button onClick={() => setBuying(true)} style={{ flex: 1, background: "#C9973A", color: "#fff", border: "none", padding: "11px 0", borderRadius: 5, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Buy Now</button>
           </div>
           {!listing.boosted && (
