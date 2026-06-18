@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-const VENMO = "benphil7";
+const VENMO = "flipresale";
 const BOOST_FEE = 3;
 const PLATFORM_FEE_PCT = 0.08;
 
